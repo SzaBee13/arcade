@@ -17,4 +17,4 @@ A mini-game lobby and persistent player profiles.
 
 ## Legal
 
-
+You can view the legal documents for this project in the [Legal](https://arcade-gate.vercel.app/legal) section of the site.

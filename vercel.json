@@ -1,9 +1,5 @@
 {
   "buildCommand": "next build",
   "installCommand": "pnpm install",
-  "functions": {
-    "api/**/*.ts": {
-      "maxDuration": 30
-    }
-  }
+
 }

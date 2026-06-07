@@ -1,0 +1,19 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Arcade Gate icon">
+  <defs>
+    <linearGradient id="bg" x1="72" y1="60" x2="450" y2="470" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#173A63"/>
+      <stop offset="1" stop-color="#091426"/>
+    </linearGradient>
+    <linearGradient id="gate" x1="170" y1="118" x2="358" y2="388" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#5ED8C1"/>
+      <stop offset="1" stop-color="#FF9C56"/>
+    </linearGradient>
+  </defs>
+  <rect x="30" y="30" width="452" height="452" rx="108" fill="url(#bg)"/>
+  <circle cx="256" cy="256" r="172" fill="none" stroke="#2F4F74" stroke-width="20"/>
+  <path d="M154 338V174C154 153.013 171.013 136 192 136H320C340.987 136 358 153.013 358 174V338"
+        fill="none" stroke="url(#gate)" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M181 264H331" stroke="#FFEED2" stroke-width="24" stroke-linecap="round"/>
+  <rect x="210" y="228" width="92" height="70" rx="18" fill="#FFE7C5"/>
+  <circle cx="254" cy="263" r="12" fill="#183351"/>
+</svg>

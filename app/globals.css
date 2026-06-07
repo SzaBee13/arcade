@@ -1,0 +1,106 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ink-1: #fff8eb;
+  --color-ink-2: #f4e9d4;
+  --color-ink-3: #d1b894;
+  --color-ink-4: #6b5a41;
+  --color-bg-night: #0e1424;
+  --color-bg-ocean: #142b40;
+  --color-bg-glow: #ff8a4c;
+  --color-bg-glow-2: #5dd6c0;
+  --color-panel: #121a2e;
+  --color-line: #d6b88c;
+  --color-danger: #ff5f57;
+  --font-display: "Syne", sans-serif;
+  --font-body: "IBM Plex Sans", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background:
+    radial-gradient(1000px 440px at -10% -5%, rgba(255, 138, 76, 0.26), transparent 50%),
+    radial-gradient(820px 420px at 108% 20%, rgba(93, 214, 192, 0.23), transparent 56%),
+    linear-gradient(135deg, var(--color-bg-night, #0e1424), var(--color-bg-ocean, #142b40));
+}
+
+@utility btn-arcade {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(255, 248, 235, 0.5);
+  background: linear-gradient(180deg, rgba(255, 248, 235, 0.16), rgba(255, 248, 235, 0.04));
+  color: var(--color-ink-1, #fff8eb);
+  height: 2.55rem;
+  padding: 0 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+.btn-arcade:hover:enabled {
+  transform: translateY(-1px);
+  border-color: rgba(240, 229, 207, 0.88);
+  background: linear-gradient(180deg, rgba(255, 248, 235, 0.26), rgba(255, 248, 235, 0.08));
+}
+.btn-arcade:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.btn-arcade.active {
+  border-color: rgba(93, 214, 192, 0.9);
+  box-shadow: 0 0 0 2px rgba(93, 214, 192, 0.2);
+}
+.btn-arcade.danger {
+  border-color: rgba(255, 95, 87, 0.62);
+  color: #ffd3cf;
+}
+.btn-arcade.ghost {
+  background: none;
+  border-color: var(--color-line);
+  height: 2rem;
+  padding: 0 0.6rem;
+  font-size: 0.85rem;
+}
+.btn-arcade.tiny {
+  height: 1.7rem;
+  padding: 0 0.5rem;
+  font-size: 0.75rem;
+}
+
+@utility input-arcade {
+  width: 100%;
+  border-radius: 0.625rem;
+  border: 1px solid rgba(214, 184, 140, 0.35);
+  background: rgba(7, 12, 22, 0.7);
+  color: var(--color-ink-1, #fff8eb);
+  height: 2.35rem;
+  padding: 0 0.65rem;
+}
+.input-arcade::placeholder {
+  color: rgba(244, 233, 212, 0.62);
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes floaty {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, 15px, 0);
+  }
+}

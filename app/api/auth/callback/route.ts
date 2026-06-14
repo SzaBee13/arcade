@@ -31,20 +31,18 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL("/?auth_error=invalid_oauth_state", requestUrl.origin));
   }
 
-  const tokenBody = new URLSearchParams({
-    grant_type: "authorization_code",
-    client_id: SZABEE_CLIENT_ID,
-    code,
-    redirect_uri: getRedirectUri(requestUrl.origin),
-    code_verifier: verifier,
-  });
-
   const tokenResponse = await fetch(`${SZABEE_BASE_URL}/oauth2/token`, {
     method: "POST",
     headers: {
-      "content-type": "application/x-www-form-urlencoded",
+      "content-type": "application/json",
     },
-    body: tokenBody,
+    body: JSON.stringify({
+      grant_type: "authorization_code",
+      client_id: SZABEE_CLIENT_ID,
+      code,
+      redirect_uri: getRedirectUri(requestUrl.origin),
+      code_verifier: verifier,
+    }),
     cache: "no-store",
   });
 

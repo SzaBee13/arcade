@@ -38,6 +38,9 @@ const authErrors: Record<string, string> = {
 
 function authErrorMessage(code?: string): string | null {
   if (!code) return null;
+  if (code === "token_exchange_failed_403") {
+    return "SzaBee returned HTTP 403 during token exchange. Save the OAuth app settings, keep Public client enabled, and verify the production redirect URI exactly matches this site.";
+  }
   if (code.startsWith("token_exchange_failed")) {
     return `${authErrors.token_exchange_failed} (${code.replace("token_exchange_failed_", "HTTP ")})`;
   }

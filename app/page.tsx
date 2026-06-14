@@ -29,6 +29,7 @@ const games = [
 ];
 
 const authErrors: Record<string, string> = {
+  cloudflare_token_challenge: "SzaBee Cloudflare is blocking the server-to-server token exchange. The SzaBee zone must skip Managed Challenge/Bot checks for POST /oauth2/token.",
   invalid_oauth_state: "Login expired or was opened in another tab. Try again from this page.",
   missing_code_or_state: "Szabee did not return a complete login response. Try again.",
   token_exchange_failed: "Szabee rejected the login token exchange. Check the app redirect URI.",

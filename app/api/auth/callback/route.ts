@@ -48,12 +48,17 @@ export async function GET(request: NextRequest) {
 
   if (!tokenResponse.ok) {
     const details = await tokenResponse.text().catch(() => "");
+    const cloudflareChallenge = details.includes("Just a moment") || details.includes("/cdn-cgi/challenge-platform/");
     console.error("Szabee token exchange failed", {
       status: tokenResponse.status,
       redirectUri: getRedirectUri(requestUrl.origin),
-      details,
+      cloudflareChallenge,
+      details: cloudflareChallenge ? "Cloudflare challenge page returned by token endpoint." : details,
     });
-    return NextResponse.redirect(new URL(`/?auth_error=token_exchange_failed_${tokenResponse.status}`, requestUrl.origin));
+    const errorCode = cloudflareChallenge
+      ? "cloudflare_token_challenge"
+      : `token_exchange_failed_${tokenResponse.status}`;
+    return NextResponse.redirect(new URL(`/?auth_error=${errorCode}`, requestUrl.origin));
   }
 
   const tokenJson = (await tokenResponse.json()) as {

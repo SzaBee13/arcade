@@ -167,6 +167,13 @@ function hasEdge(walls: WallState, kind: WallKind, row: number, col: number): bo
   return kind === "h" ? walls.horizontal.has(key(row, col)) : walls.vertical.has(key(row, col));
 }
 
+function hasCrossingWall(walls: WallState, kind: WallKind, row: number, col: number): boolean {
+  if (kind === "h") {
+    return walls.vertical.has(key(row, col)) && walls.vertical.has(key(row + 1, col));
+  }
+  return walls.horizontal.has(key(row, col)) && walls.horizontal.has(key(row, col + 1));
+}
+
 export function canPlaceWall(state: BarricadeState, kind: WallKind, row: number, col: number): boolean {
   if (!wallAllowed(kind, row, col)) {
     return false;
@@ -178,21 +185,24 @@ export function canPlaceWall(state: BarricadeState, kind: WallKind, row: number,
   if (hasEdge(state.walls, kind, kind === "h" ? row : row + 1, kind === "h" ? col + 1 : col)) {
     return false;
   }
+  if (hasCrossingWall(state.walls, kind, row, col)) {
+    return false;
+  }
 
   const test = cloneWalls(state.walls);
-  test.horizontal.add(key(row, col));
-  test.vertical.add(key(row, col));
   if (kind === "h") {
+    test.horizontal.add(key(row, col));
     test.horizontal.add(key(row, col + 1));
-    test.vertical.add(key(row, col + 1));
   } else {
+    test.vertical.add(key(row, col));
     test.vertical.add(key(row + 1, col));
-    test.horizontal.add(key(row + 1, col));
   }
 
   const pathA = hasPath(state.positions.A, targetRow("A"), test, state.positions.B);
   const pathB = hasPath(state.positions.B, targetRow("B"), test, state.positions.A);
-  return pathA && pathB;
+  const movesA = neighbors(state.positions.A, test, state.positions.B).length > 0;
+  const movesB = neighbors(state.positions.B, test, state.positions.A).length > 0;
+  return pathA && pathB && movesA && movesB;
 }
 
 export function createInitialState(log = "Your turn. Move or place a barricade."): BarricadeState {

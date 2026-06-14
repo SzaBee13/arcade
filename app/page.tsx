@@ -87,7 +87,7 @@ export default async function Home() {
 
       <section className="mt-5 grid animate-[rise_0.9s_ease_both] grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-4" aria-label="Game selection">
         {games.map((game, i) => (
-          <article key={game.name} className="flex min-h-[210px] content-between gap-4 rounded-2xl border border-line/28 bg-gradient-to-br from-[rgba(23,34,58,0.88)] to-[rgba(14,22,40,0.96)] p-4 shadow-xl" style={{ animationDelay: `${i * 0.08}s` }}>
+          <article key={game.name} className="flex min-h-[210px] flex-col justify-between gap-4 rounded-2xl border border-line/28 bg-gradient-to-br from-[rgba(23,34,58,0.88)] to-[rgba(14,22,40,0.96)] p-4 shadow-xl" style={{ animationDelay: `${i * 0.08}s` }}>
             <div>
               <div className="flex items-center justify-between gap-3">
                 <h3 className="font-display text-xl">{game.name}</h3>
@@ -98,11 +98,11 @@ export default async function Home() {
               <p className="m-0 mt-3 leading-relaxed text-ink-2">{game.description}</p>
             </div>
             {game.tag === "Live" ? (
-              <Link className="btn-arcade self-end" href={game.href}>
+              <Link className="btn-arcade min-w-28 self-end whitespace-nowrap" href={game.href}>
                 Play now
               </Link>
             ) : (
-              <button className="btn-arcade self-end border-dashed opacity-50" type="button" disabled>
+              <button className="btn-arcade min-w-32 self-end whitespace-nowrap border-dashed opacity-50" type="button" disabled>
                 Coming soon
               </button>
             )}

@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { getSession } from "@/lib/szabee";
 import {
   createRoom,
@@ -9,7 +8,7 @@ import {
   removePlayer,
   serializeRoom,
 } from "@/lib/barricade-room";
-import { other } from "@/lib/barricade-engine";
+import { type Position, type WallKind } from "@/lib/barricade-engine";
 
 function bad(message: string, status = 400) {
   return NextResponse.json({ error: message }, { status });
@@ -31,6 +30,10 @@ export async function POST(req: NextRequest) {
   const body = (await req.json().catch(() => ({}))) as {
     action?: string;
     roomId?: string;
+    to?: Position;
+    kind?: WallKind;
+    row?: number;
+    col?: number;
   };
 
   try {
@@ -48,7 +51,15 @@ export async function POST(req: NextRequest) {
 
     if (body.action === "move" || body.action === "wall") {
       if (!body.roomId) return bad("roomId required.");
-      const room = applyAction(body.roomId, player.id, body as any);
+      const room =
+        body.action === "move"
+          ? applyAction(body.roomId, player.id, { action: "move", to: body.to })
+          : applyAction(body.roomId, player.id, {
+              action: "wall",
+              kind: body.kind,
+              row: body.row,
+              col: body.col,
+            });
       const side = room.players.find((p) => p.id === player.id)!.side;
       return NextResponse.json(serializeRoom(room, side));
     }

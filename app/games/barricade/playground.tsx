@@ -123,6 +123,7 @@ async function api(path: string, body?: unknown) {
 export function BarricadeBoard({ playerName }: { playerName: string }) {
   const [gameType, setGameType] = useState<"bot" | "multi">("bot");
   const [mode, setMode] = useState<ActionMode>("move");
+  const [wallKind, setWallKind] = useState<WallKind>("v");
   const [state, setState] = useState<BarricadeState>(() => createInitialState());
   const [roomInfo, setRoomInfo] = useState<SerializedRoom | null>(null);
   const [roomInput, setRoomInput] = useState("");
@@ -230,7 +231,7 @@ export function BarricadeBoard({ playerName }: { playerName: string }) {
     if (gameType === "bot") {
       const next = applyWall(state, yourSide, kind, row, col);
       if (!next) {
-        setState((prev) => ({ ...prev, log: "Invalid barricade. Every player must keep at least one path." }));
+        setState((prev) => ({ ...prev, log: "Invalid barricade. Both players need a path and at least one legal move." }));
         return;
       }
       setState({ ...next, log: "Barricade dropped. Bot is thinking..." });
@@ -255,6 +256,7 @@ export function BarricadeBoard({ playerName }: { playerName: string }) {
 
   function resetLocal() {
     setMode("move");
+    setWallKind("v");
     setState(createInitialState("Fresh board. Your turn."));
     setRoomInfo(null);
     setInviteMsg("");
@@ -263,6 +265,7 @@ export function BarricadeBoard({ playerName }: { playerName: string }) {
 
   function wallCanPlace(kind: WallKind, row: number, col: number): boolean {
     if (!canAct || mode !== "barricade") return false;
+    if (kind !== wallKind) return false;
     if (state.remainingWalls[yourSide] <= 0) return false;
     return canPlaceWall(state, kind, row, col);
   }
@@ -391,6 +394,31 @@ export function BarricadeBoard({ playerName }: { playerName: string }) {
           </button>
         </div>
 
+        {mode === "barricade" ? (
+          <div className="grid gap-2 rounded-xl border border-line/28 bg-[rgba(11,18,33,0.7)] p-2.5">
+            <p className="m-0 text-xs leading-relaxed text-ink-2">
+              Choose a direction, then click the glowing edge. Vertical goes on the right edge and spans two rows.
+              Horizontal goes on the bottom edge and spans two columns.
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                className={`btn-arcade tiny ${wallKind === "v" ? "active" : "border-dashed"}`}
+                onClick={() => setWallKind("v")}
+              >
+                Vertical ↕
+              </button>
+              <button
+                type="button"
+                className={`btn-arcade tiny ${wallKind === "h" ? "active" : "border-dashed"}`}
+                onClick={() => setWallKind("h")}
+              >
+                Horizontal ↔
+              </button>
+            </div>
+          </div>
+        ) : null}
+
         <div className="grid gap-1.5 rounded-xl border border-line/28 bg-[rgba(11,18,33,0.7)] p-2.5">
           <h3 className="m-0 text-sm">Play with Friend</h3>
           {friends.length === 0 ? (
@@ -421,51 +449,110 @@ export function BarricadeBoard({ playerName }: { playerName: string }) {
       </aside>
 
       <div className="overflow-auto rounded-2xl border border-line/28 bg-gradient-to-br from-[rgba(17,26,45,0.94)] to-[rgba(8,14,27,0.94)] p-3" role="grid" aria-label="Barricade board">
-        {Array.from({ length: BOARD_SIZE }).map((_, row) => (
-          <div className="flex" key={`row-${row}`}>
-            {Array.from({ length: BOARD_SIZE }).map((__, col) => {
-              const isYou = state.positions[yourSide].row === row && state.positions[yourSide].col === col;
-              const isEnemy = state.positions[enemySide].row === row && state.positions[enemySide].col === col;
-              const canReach = reachable.some((tile) => tile.row === row && tile.col === col);
+        {mode === "barricade" ? (
+          <div className="mb-3 rounded-xl border border-bg-glow-2/30 bg-bg-glow-2/10 px-3 py-2 text-sm text-ink-2">
+            Placing: <strong>{wallKind === "v" ? "vertical" : "horizontal"}</strong> barricade. Only legal anchors glow; a barricade always occupies two connected edge slots.
+          </div>
+        ) : null}
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs text-ink-3">
+          <span>You start at the top and race to the bottom.</span>
+          <span>Enemy starts at the bottom and races to the top.</span>
+        </div>
+        <div
+          className="mx-auto grid w-max rounded-2xl border border-line/20 bg-[rgba(7,12,22,0.42)] p-2 shadow-inner"
+          style={{
+            gridTemplateColumns: "repeat(8, minmax(34px, 48px) 12px) minmax(34px, 48px)",
+            gridTemplateRows: "repeat(8, minmax(34px, 48px) 12px) minmax(34px, 48px)",
+          }}
+        >
+          {Array.from({ length: BOARD_SIZE * 2 - 1 }).map((_, gridRow) =>
+            Array.from({ length: BOARD_SIZE * 2 - 1 }).map((__, gridCol) => {
+              const isCell = gridRow % 2 === 0 && gridCol % 2 === 0;
+              const isVerticalSlot = gridRow % 2 === 0 && gridCol % 2 === 1;
+              const isHorizontalSlot = gridRow % 2 === 1 && gridCol % 2 === 0;
+              const isIntersection = gridRow % 2 === 1 && gridCol % 2 === 1;
 
-              const hasH = state.walls.horizontal.has(key(row, col));
-              const hasV = state.walls.vertical.has(key(row, col));
+              if (isCell) {
+                const row = gridRow / 2;
+                const col = gridCol / 2;
+                const isYou = state.positions[yourSide].row === row && state.positions[yourSide].col === col;
+                const isEnemy = state.positions[enemySide].row === row && state.positions[enemySide].col === col;
+                const canReach = reachable.some((tile) => tile.row === row && tile.col === col);
 
-              return (
-                <div key={`tile-${row}-${col}`} className="relative m-1.5 h-14 w-14 max-sm:m-1 max-sm:h-[47px] max-sm:w-[47px]">
+                return (
                   <button
+                    key={`cell-${row}-${col}`}
                     type="button"
-                    className={`h-10 w-10 cursor-pointer rounded-xl border border-white/35 bg-white/5 font-extrabold text-ink-1 transition-transform hover:scale-105 disabled:cursor-not-allowed max-sm:h-[38px] max-sm:w-[38px] ${canReach ? "border-bg-glow-2/90 bg-bg-glow-2/20" : ""} ${isYou ? "bg-bg-glow-2/30" : ""} ${isEnemy ? "bg-bg-glow/30" : ""}`}
+                    className={`m-0.5 flex items-center justify-center rounded-xl border border-white/35 bg-white/5 text-sm font-extrabold text-ink-1 transition-transform hover:scale-105 disabled:cursor-not-allowed ${canReach ? "border-bg-glow-2/90 bg-bg-glow-2/20 shadow-[0_0_14px_rgba(93,214,192,0.22)]" : ""} ${isYou ? "bg-bg-glow-2/30" : ""} ${isEnemy ? "bg-bg-glow/30" : ""}`}
                     onClick={() => sendMove({ row, col })}
                     disabled={!canAct || mode !== "move" || !!state.winner}
+                    aria-label={`Board square ${row},${col}`}
                   >
                     {isYou ? "Y" : isEnemy ? "E" : ""}
                   </button>
+                );
+              }
 
-                  {col < BOARD_SIZE - 1 ? (
+              if (isVerticalSlot) {
+                const row = gridRow / 2;
+                const col = (gridCol - 1) / 2;
+                const hasWall = state.walls.vertical.has(key(row, col));
+                const canPlace = row < BOARD_SIZE - 1 && wallCanPlace("v", row, col);
+
+                if (hasWall) {
+                  return <div key={`v-wall-${row}-${col}`} className="m-[1px] rounded-full bg-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.45)]" />;
+                }
+                if (canPlace) {
+                  return (
                     <button
+                      key={`v-place-${row}-${col}`}
                       type="button"
-                      className={`absolute right-[-8px] top-[-2px] w-[9px] cursor-pointer rounded-sm border border-line/25 bg-white/5 disabled:cursor-not-allowed max-sm:top-[3px] max-sm:h-[31px] ${hasV ? "border-amber-300/95 bg-amber-300/80" : "h-[58px]"} ${wallCanPlace("v", row, col) ? "border-bg-glow-2/60 bg-bg-glow-2/10" : ""}`}
+                      className="m-[1px] rounded-full border border-bg-glow-2/90 bg-bg-glow-2/35 text-[9px] font-black text-ink-1 shadow-[0_0_12px_rgba(93,214,192,0.35)] hover:bg-bg-glow-2/55"
                       onClick={() => sendWall("v", row, col)}
-                      disabled={!wallCanPlace("v", row, col)}
-                      aria-label={`Place vertical barricade at ${row},${col}`}
-                    />
-                  ) : null}
+                      title="Vertical barricade: right edge of this square plus the edge below"
+                      aria-label={`Place vertical barricade on the right edge of ${row},${col}`}
+                    >
+                      V
+                    </button>
+                  );
+                }
+                return <div key={`v-empty-${row}-${col}`} />;
+              }
 
-                  {row < BOARD_SIZE - 1 ? (
+              if (isHorizontalSlot) {
+                const row = (gridRow - 1) / 2;
+                const col = gridCol / 2;
+                const hasWall = state.walls.horizontal.has(key(row, col));
+                const canPlace = col < BOARD_SIZE - 1 && wallCanPlace("h", row, col);
+
+                if (hasWall) {
+                  return <div key={`h-wall-${row}-${col}`} className="m-[1px] rounded-full bg-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.45)]" />;
+                }
+                if (canPlace) {
+                  return (
                     <button
+                      key={`h-place-${row}-${col}`}
                       type="button"
-                      className={`absolute bottom-[-8px] left-[-2px] h-[9px] cursor-pointer rounded-sm border border-line/25 bg-white/5 disabled:cursor-not-allowed max-sm:left-[3px] max-sm:w-[31px] ${hasH ? "border-amber-300/95 bg-amber-300/80" : "w-[58px]"} ${wallCanPlace("h", row, col) ? "border-bg-glow-2/60 bg-bg-glow-2/10" : ""}`}
+                      className="m-[1px] rounded-full border border-bg-glow-2/90 bg-bg-glow-2/35 text-[9px] font-black leading-none text-ink-1 shadow-[0_0_12px_rgba(93,214,192,0.35)] hover:bg-bg-glow-2/55"
                       onClick={() => sendWall("h", row, col)}
-                      disabled={!wallCanPlace("h", row, col)}
-                      aria-label={`Place horizontal barricade at ${row},${col}`}
-                    />
-                  ) : null}
-                </div>
-              );
-            })}
-          </div>
-        ))}
+                      title="Horizontal barricade: bottom edge of this square plus the edge to the right"
+                      aria-label={`Place horizontal barricade on the bottom edge of ${row},${col}`}
+                    >
+                      H
+                    </button>
+                  );
+                }
+                return <div key={`h-empty-${row}-${col}`} />;
+              }
+
+              if (isIntersection) {
+                return <div key={`cross-${gridRow}-${gridCol}`} className="m-[3px] rounded-full bg-line/15" />;
+              }
+
+              return null;
+            }),
+          )}
+        </div>
       </div>
     </section>
   );

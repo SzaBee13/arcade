@@ -66,8 +66,8 @@ export function applyAction(
   roomId: string,
   playerId: string,
   action:
-    | { type: "move"; to: { row: number; col: number } }
-    | { type: "wall"; kind: "h" | "v"; row: number; col: number },
+    | { action: "move"; to?: { row: number; col: number } }
+    | { action: "wall"; kind?: "h" | "v"; row?: number; col?: number },
 ): Room {
   const room = rooms.get(roomId);
   if (!room) {
@@ -89,9 +89,11 @@ export function applyAction(
   }
 
   const next =
-    action.type === "move"
-      ? applyMove(room.state, player.side, action.to)
-      : applyWall(room.state, player.side, action.kind, action.row, action.col);
+    action.action === "move"
+      ? action.to && applyMove(room.state, player.side, action.to)
+      : action.kind && typeof action.row === "number" && typeof action.col === "number"
+        ? applyWall(room.state, player.side, action.kind, action.row, action.col)
+        : null;
 
   if (!next) {
     throw new Error("Illegal move.");

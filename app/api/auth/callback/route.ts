@@ -31,23 +31,31 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL("/?auth_error=invalid_oauth_state", requestUrl.origin));
   }
 
+  const tokenBody = new URLSearchParams({
+    grant_type: "authorization_code",
+    client_id: SZABEE_CLIENT_ID,
+    code,
+    redirect_uri: getRedirectUri(requestUrl.origin),
+    code_verifier: verifier,
+  });
+
   const tokenResponse = await fetch(`${SZABEE_BASE_URL}/oauth2/token`, {
     method: "POST",
     headers: {
-      "content-type": "application/json",
+      "content-type": "application/x-www-form-urlencoded",
     },
-    body: JSON.stringify({
-      grant_type: "authorization_code",
-      client_id: SZABEE_CLIENT_ID,
-      code,
-      redirect_uri: getRedirectUri(requestUrl.origin),
-      code_verifier: verifier,
-    }),
+    body: tokenBody,
     cache: "no-store",
   });
 
   if (!tokenResponse.ok) {
-    return NextResponse.redirect(new URL("/?auth_error=token_exchange_failed", requestUrl.origin));
+    const details = await tokenResponse.text().catch(() => "");
+    console.error("Szabee token exchange failed", {
+      status: tokenResponse.status,
+      redirectUri: getRedirectUri(requestUrl.origin),
+      details,
+    });
+    return NextResponse.redirect(new URL(`/?auth_error=token_exchange_failed_${tokenResponse.status}`, requestUrl.origin));
   }
 
   const tokenJson = (await tokenResponse.json()) as {

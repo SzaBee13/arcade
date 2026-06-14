@@ -26,6 +26,10 @@ export function getRedirectUri(origin: string): string {
   const fixed = raw.replace(/[&?]scope=.*$/, "");
   try {
     const url = new URL(fixed);
+    const originUrl = new URL(origin);
+    if (url.hostname === "localhost" && originUrl.hostname !== "localhost") {
+      return `${originUrl.origin}/api/auth/callback`;
+    }
     url.search = "";
     url.hash = "";
     return url.toString().replace(/\/$/, "");

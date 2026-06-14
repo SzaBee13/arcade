@@ -10,19 +10,25 @@ export type ToastInvite = {
   game: string;
 };
 
-export function ToastProvider() {
+type InviteResponseItem = ToastInvite;
+
+export function ToastProvider({ enabled }: { enabled: boolean }) {
   const [invites, setInvites] = useState<ToastInvite[]>([]);
   const router = useRouter();
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
+    if (!enabled) {
+      return;
+    }
+
     pollRef.current = setInterval(async () => {
       try {
         const res = await fetch("/api/invite");
         if (!res.ok) return;
         const data = await res.json();
         if (data?.invites?.length) {
-          setInvites(data.invites.map((i: any) => ({
+          setInvites(data.invites.map((i: InviteResponseItem) => ({
             id: i.id,
             fromUsername: i.fromUsername,
             roomId: i.roomId,
@@ -37,7 +43,7 @@ export function ToastProvider() {
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
-  }, []);
+  }, [enabled]);
 
   const handleJoin = useCallback(async (invite: ToastInvite) => {
     await fetch("/api/invite", {

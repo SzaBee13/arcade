@@ -30,7 +30,7 @@ export async function Nav() {
           )}
         </div>
       </nav>
-      <ToastProvider />
+      <ToastProvider enabled={!!session} />
     </>
   );
 }

@@ -32,6 +32,29 @@ export function addFriend(userUuid: string, entry: FriendEntry): void {
   }
 }
 
+export function addMutualFriends(
+  first: { uuid: string; username: string; nickname: string },
+  second: { uuid: string; username: string; nickname: string },
+): void {
+  if (first.uuid === second.uuid) {
+    throw new Error("Cannot add yourself as a friend.");
+  }
+
+  const addedAt = Date.now();
+  addFriend(first.uuid, {
+    uuid: second.uuid,
+    username: second.username,
+    nickname: second.nickname,
+    addedAt,
+  });
+  addFriend(second.uuid, {
+    uuid: first.uuid,
+    username: first.username,
+    nickname: first.nickname,
+    addedAt,
+  });
+}
+
 export function removeFriend(userUuid: string, friendUuid: string): void {
   const list = friendsByUser.get(userUuid);
   if (!list) return;

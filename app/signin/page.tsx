@@ -8,8 +8,9 @@ export default function SignInPage() {
   const router = useRouter();
 
   const handleContinue = () => {
-    // Redirect to OAuth login flow
-    router.push("/api/auth/login");
+    const returnTo = new URLSearchParams(window.location.search).get("returnTo");
+    const suffix = returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : "";
+    router.push(`/api/auth/login${suffix}`);
   };
 
   return (

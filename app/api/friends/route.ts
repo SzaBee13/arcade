@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/szabee";
 import {
   getFriends,
+  addFriend,
   removeFriend,
   getPendingForUser,
   getSentRequests,
@@ -36,7 +37,7 @@ export async function POST(req: NextRequest) {
     if (body.action === "request") {
       if (!body.uuid) return bad("Target uuid required.");
       if (body.uuid === auth.uuid) return bad("Cannot send friend request to yourself.");
-      const target = getOrCreateUser(body.uuid, "");
+      getOrCreateUser(body.uuid, "");
       sendRequest(auth.uuid, me.username || auth.uuid, me.nickname || me.username, body.uuid);
       return NextResponse.json({ ok: true });
     }
@@ -45,6 +46,12 @@ export async function POST(req: NextRequest) {
       if (!body.requestId) return bad("requestId required.");
       const req = acceptRequest(body.requestId);
       if (!req) return bad("Request not found or already processed.");
+      addFriend(req.fromUuid, {
+        uuid: auth.uuid,
+        username: me.username || auth.uuid,
+        nickname: me.nickname || me.username,
+        addedAt: Date.now(),
+      });
       return NextResponse.json({ ok: true });
     }
 

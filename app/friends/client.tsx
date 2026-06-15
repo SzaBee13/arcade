@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 type FriendUser = { uuid: string; username: string; nickname: string };
 type RequestEntry = {
@@ -32,13 +32,18 @@ export function FriendsClient() {
   const [tab, setTab] = useState<"friends" | "incoming" | "search">("friends");
   const [searchQ, setSearchQ] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [inviteLink, setInviteLink] = useState("");
+  const [inviteMessage, setInviteMessage] = useState("");
+  const [creatingInvite, setCreatingInvite] = useState(false);
 
-  const load = useCallback(async () => {
+  async function load() {
     const d = await api("/api/friends") as FriendResponse;
     setData(d);
-  }, []);
+  }
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    void api("/api/friends").then((d: FriendResponse) => setData(d));
+  }, []);
 
   async function handleSearch() {
     if (!searchQ.trim()) return;
@@ -66,8 +71,51 @@ export function FriendsClient() {
     load();
   }
 
+  async function createInviteLink() {
+    setCreatingInvite(true);
+    setInviteMessage("");
+    try {
+      const res = await api("/api/friend-invites", {});
+      if (res.error) {
+        setInviteMessage(res.error);
+        return;
+      }
+      setInviteLink(res.invite.url);
+      setInviteMessage("Invite link created.");
+    } finally {
+      setCreatingInvite(false);
+    }
+  }
+
+  async function copyInviteLink() {
+    if (!inviteLink) return;
+    await navigator.clipboard.writeText(inviteLink);
+    setInviteMessage("Invite link copied.");
+  }
+
   return (
     <div className="rounded-2xl border border-line/28 bg-panel/80 p-4 backdrop-blur">
+      <div className="mb-4 grid gap-2 rounded-xl border border-line/28 bg-[rgba(11,18,33,0.6)] p-3">
+        <div>
+          <h2 className="m-0 text-sm font-bold">Friend Invite Link</h2>
+          <p className="m-0 mt-1 text-xs text-ink-3">Create a link anyone can use to sign in and become your friend.</p>
+        </div>
+        <div className="flex gap-2">
+          <button type="button" className="btn-arcade" onClick={createInviteLink} disabled={creatingInvite}>
+            {creatingInvite ? "Creating..." : "Create Link"}
+          </button>
+          {inviteLink ? (
+            <button type="button" className="btn-arcade ghost" onClick={copyInviteLink}>
+              Copy
+            </button>
+          ) : null}
+        </div>
+        {inviteLink ? (
+          <input className="input-arcade" value={inviteLink} readOnly onFocus={(e) => e.currentTarget.select()} />
+        ) : null}
+        {inviteMessage ? <p className="m-0 text-xs text-ink-3">{inviteMessage}</p> : null}
+      </div>
+
       <div className="mb-4 flex gap-2">
         <button type="button" className={`btn-arcade flex-1 ${tab === "friends" ? "active" : "border-dashed"}`} onClick={() => setTab("friends")}>
           Friends {data?.friends.length ? `(${data.friends.length})` : ""}

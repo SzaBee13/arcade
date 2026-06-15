@@ -9,6 +9,7 @@ import {
 
 const STATE_COOKIE = "szabee_oauth_state";
 const VERIFIER_COOKIE = "szabee_oauth_verifier";
+const RETURN_TO_COOKIE = "arcade_auth_return_to";
 
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
@@ -91,7 +92,11 @@ export async function GET(request: NextRequest) {
   });
 
   const secureCookie = process.env.NODE_ENV === "production";
-  const response = NextResponse.redirect(new URL("/", requestUrl.origin));
+  const returnTo = request.cookies.get(RETURN_TO_COOKIE)?.value;
+  const safeReturnTo = returnTo && returnTo.startsWith("/") && !returnTo.startsWith("//")
+    ? returnTo
+    : "/";
+  const response = NextResponse.redirect(new URL(safeReturnTo, requestUrl.origin));
   response.cookies.set(SESSION_COOKIE, encoded, {
     httpOnly: true,
     sameSite: "lax",
@@ -102,6 +107,7 @@ export async function GET(request: NextRequest) {
 
   response.cookies.set(STATE_COOKIE, "", { maxAge: 0, path: "/" });
   response.cookies.set(VERIFIER_COOKIE, "", { maxAge: 0, path: "/" });
+  response.cookies.set(RETURN_TO_COOKIE, "", { maxAge: 0, path: "/" });
 
   return response;
 }

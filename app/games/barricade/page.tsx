@@ -16,13 +16,13 @@ export default async function BarricadePage() {
         <div className="grid gap-0 rounded-xl border border-line/28 bg-[rgba(9,16,31,0.52)] px-3 py-2">
           {arcadeUser ? (
             <>
-              <span className="font-bold">{arcadeUser.nickname || arcadeUser.username}</span>
-              <span className="text-sm text-ink-2">@{arcadeUser.username}</span>
+              <span className="font-bold">{arcadeUser.nickname || arcadeUser.username || session?.user?.display_name || "Player"}</span>
+              {arcadeUser.username ? <span className="text-sm text-ink-2">@{arcadeUser.username}</span> : null}
             </>
           ) : session?.user ? (
             <>
               <span className="font-bold">{session.user.display_name}</span>
-              <span className="text-sm text-ink-2">@{session.user.id}</span>
+              {session.user.id ? <span className="text-sm text-ink-2">@{session.user.id}</span> : null}
             </>
           ) : (
             <span className="text-sm text-ink-2">Playing as guest</span>

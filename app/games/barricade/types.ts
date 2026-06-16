@@ -1,10 +1,5 @@
 import { type BarricadeState, type Position, type Side, deserializeWalls } from "@/lib/barricade-engine";
 
-export const SIDES: Record<string, string> = {
-  A: "Amber",
-  B: "Blue",
-};
-
 export type ServerState = {
   positions: Record<Side, Position>;
   walls: { horizontal: string[]; vertical: string[] };

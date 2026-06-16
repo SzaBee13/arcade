@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getSession } from "@/lib/szabee";
 import { getOrCreateUser } from "@/lib/user-store";
 import { ToastProvider } from "@/app/components/toast-provider";
+import { NotificationBell } from "@/app/components/notification-bell";
 
 export async function Nav() {
   const session = await getSession();
@@ -20,6 +21,7 @@ export async function Nav() {
               <Link href="/profile" className="text-sm text-ink-2 transition-colors hover:text-ink-1">
                 {arcadeUser.nickname || arcadeUser.username || session?.user?.display_name || "Profile"}
               </Link>
+              <NotificationBell />
             </>
           ) : (
             <> 

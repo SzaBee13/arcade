@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { botTakeTurn } from "./bot";
-import { SIDES, type SerializedRoom, stateFromServer } from "./types";
+import { type SerializedRoom, stateFromServer } from "./types";
 import {
   type ActionMode,
   BOARD_SIZE,
@@ -15,13 +15,9 @@ import {
   canPlaceWall,
   canMove,
   createInitialState,
-  deserializeWalls,
   key,
   neighbors,
   other,
-  shortestDistance,
-  targetRow,
-  wallAllowed,
 } from "@/lib/barricade-engine";
 
 type FriendUser = { uuid: string; username: string; nickname: string };
@@ -41,7 +37,6 @@ export function BarricadeBoard({ playerName }: { playerName: string }) {
   const [wallKind, setWallKind] = useState<WallKind>("v");
   const [state, setState] = useState<BarricadeState>(() => createInitialState());
   const [roomInfo, setRoomInfo] = useState<SerializedRoom | null>(null);
-  const [roomInput, setRoomInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [friends, setFriends] = useState<FriendUser[]>([]);
   const [inviteMsg, setInviteMsg] = useState("");
@@ -49,8 +44,15 @@ export function BarricadeBoard({ playerName }: { playerName: string }) {
 
   const yourSide: Side = roomInfo?.side ?? "A";
   const enemySide: Side = other(yourSide);
-  const multiplayerReady = gameType === "multi" ? !!roomInfo && roomInfo.players.length === 2 : true;
-  const canAct = multiplayerReady && !state.winner && state.turn === yourSide;
+  const gameActive = gameType === "bot" || (gameType === "multi" && !!roomInfo && roomInfo.players.length === 2);
+  const canAct = gameActive && !state.winner && state.turn === yourSide;
+
+  function myName() {
+    if (gameType === "bot") return playerName;
+    if (!roomInfo) return playerName;
+    const me = roomInfo.players.find((p) => p.side === yourSide);
+    return me?.name ?? playerName;
+  }
 
   const reachable = useMemo(() => {
     if (!canAct || mode !== "move") return [] as Position[];
@@ -94,25 +96,6 @@ export function BarricadeBoard({ playerName }: { playerName: string }) {
     }, 320);
     return () => window.clearTimeout(timer);
   }, [gameType, state.winner, state.turn]);
-
-  async function joinRoom(action: "create" | "join") {
-    setLoading(true);
-    try {
-      const data: SerializedRoom & { error?: string } = await api("/api/barricade", {
-        action,
-        roomId: roomInput.trim() || undefined,
-      });
-      if (data.error) {
-        setState((prev) => ({ ...prev, log: data.error! }));
-        return;
-      }
-      setRoomInfo(data);
-      setState(stateFromServer(data.state));
-      if (data.roomId) startPolling(data.roomId);
-    } finally {
-      setLoading(false);
-    }
-  }
 
   async function sendMove(target: Position) {
     if (!canAct || mode !== "move") return;
@@ -175,6 +158,7 @@ export function BarricadeBoard({ playerName }: { playerName: string }) {
     setState(createInitialState("Fresh board. Your turn."));
     setRoomInfo(null);
     setInviteMsg("");
+    setLoading(false);
     if (pollRef.current) clearInterval(pollRef.current);
   }
 
@@ -236,7 +220,7 @@ export function BarricadeBoard({ playerName }: { playerName: string }) {
           <button
             type="button"
             className={`btn-arcade ${gameType === "multi" ? "active" : "border-dashed"}`}
-            onClick={() => { setGameType("multi"); setState(createInitialState("Create or join a room.")); }}
+            onClick={() => { setGameType("multi"); setState(createInitialState("Pick a friend to play against.")); }}
           >
             Multiplayer
           </button>
@@ -247,12 +231,9 @@ export function BarricadeBoard({ playerName }: { playerName: string }) {
             {roomInfo ? (
               <>
                 <p className="m-0 text-sm text-ink-2">Room: {roomInfo.roomId}</p>
-                <p className="m-0 text-sm text-ink-2">You are {SIDES[yourSide]}</p>
                 <p className="m-0 text-sm text-ink-2">Players: {roomInfo.players.length}/2</p>
                 {roomInfo.players.length < 2 ? (
-                  <p className="m-0 text-xs text-ink-3">
-                    Waiting for opponent. Share room ID: <strong>{roomInfo.roomId}</strong>
-                  </p>
+                  <p className="m-0 text-xs text-ink-3">Waiting for opponent...</p>
                 ) : null}
                 <button type="button" className="btn-arcade danger" onClick={resetLocal}>
                   Leave room
@@ -260,103 +241,90 @@ export function BarricadeBoard({ playerName }: { playerName: string }) {
               </>
             ) : (
               <>
-                <input
-                  value={roomInput}
-                  onChange={(event) => setRoomInput(event.target.value)}
-                  className="input-arcade"
-                  placeholder="room name (optional)"
-                />
-                <div className="flex gap-2.5">
-                  <button type="button" className="btn-arcade" onClick={() => joinRoom("create")} disabled={loading}>
-                    Create room
-                  </button>
-                  <button type="button" className="btn-arcade" onClick={() => joinRoom("join")} disabled={loading}>
-                    Join room
-                  </button>
-                </div>
+                <h3 className="m-0 text-sm">Invite a Friend</h3>
+                {friends.length === 0 ? (
+                  <p className="m-0 text-xs text-ink-3">No friends yet. Add friends from the lobby.</p>
+                ) : (
+                  <ul className="m-0 grid list-none gap-1 p-0">
+                    {friends.map((f) => (
+                      <li key={f.uuid} className="flex items-center justify-between gap-1 text-sm">
+                        <span>{f.nickname || f.username}</span>
+                        <button
+                          type="button"
+                          className="btn-arcade tiny"
+                          onClick={() => createAndInviteFriend(f)}
+                          disabled={loading}
+                        >
+                          Invite
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {inviteMsg ? <p className="m-0 text-sm text-ink-2">{inviteMsg}</p> : null}
               </>
             )}
           </div>
         ) : null}
 
-        <dl className="m-0 grid gap-2">
-          <div className="flex justify-between gap-2">
-            <dt className="font-bold">{gameType === "bot" ? playerName : SIDES[yourSide]}</dt>
-            <dd className="m-0 text-ink-2">{state.remainingWalls[yourSide]} barricades</dd>
-          </div>
-          <div className="flex justify-between gap-2">
-            <dt className="font-bold">{opponentName()}</dt>
-            <dd className="m-0 text-ink-2">{state.remainingWalls[enemySide]} barricades</dd>
-          </div>
-        </dl>
+        {gameActive ? (
+          <>
+            <dl className="m-0 grid gap-2">
+              <div className="flex justify-between gap-2">
+                <dt className="font-bold">{myName()}</dt>
+                <dd className="m-0 text-ink-2">{state.remainingWalls[yourSide]} barricades</dd>
+              </div>
+              <div className="flex justify-between gap-2">
+                <dt className="font-bold">{opponentName()}</dt>
+                <dd className="m-0 text-ink-2">{state.remainingWalls[enemySide]} barricades</dd>
+              </div>
+            </dl>
 
-        <div className="flex gap-2.5">
-          <button
-            type="button"
-            className={`btn-arcade ${mode === "move" ? "active" : "border-dashed"}`}
-            onClick={() => setMode("move")}
-            disabled={!canAct}
-          >
-            Move
-          </button>
-          <button
-            type="button"
-            className={`btn-arcade ${mode === "barricade" ? "active" : "border-dashed"}`}
-            onClick={() => setMode("barricade")}
-            disabled={!canAct || state.remainingWalls[yourSide] <= 0}
-          >
-            Barricade
-          </button>
-        </div>
-
-        {mode === "barricade" ? (
-          <div className="grid gap-2 rounded-xl border border-line/28 bg-[rgba(11,18,33,0.7)] p-2.5">
-            <p className="m-0 text-xs leading-relaxed text-ink-2">
-              Choose a direction, then click the glowing edge. Vertical goes on the right edge and spans two rows.
-              Horizontal goes on the bottom edge and spans two columns.
-            </p>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="flex gap-2.5">
               <button
                 type="button"
-                className={`btn-arcade tiny ${wallKind === "v" ? "active" : "border-dashed"}`}
-                onClick={() => setWallKind("v")}
+                className={`btn-arcade ${mode === "move" ? "active" : "border-dashed"}`}
+                onClick={() => setMode("move")}
+                disabled={!canAct}
               >
-                Vertical ↕
+                Move
               </button>
               <button
                 type="button"
-                className={`btn-arcade tiny ${wallKind === "h" ? "active" : "border-dashed"}`}
-                onClick={() => setWallKind("h")}
+                className={`btn-arcade ${mode === "barricade" ? "active" : "border-dashed"}`}
+                onClick={() => setMode("barricade")}
+                disabled={!canAct || state.remainingWalls[yourSide] <= 0}
               >
-                Horizontal ↔
+                Barricade
               </button>
             </div>
-          </div>
-        ) : null}
 
-        <div className="grid gap-1.5 rounded-xl border border-line/28 bg-[rgba(11,18,33,0.7)] p-2.5">
-          <h3 className="m-0 text-sm">Play with Friend</h3>
-          {friends.length === 0 ? (
-            <p className="m-0 text-xs text-ink-3">No friends yet. Add friends from the lobby.</p>
-          ) : (
-            <ul className="m-0 grid list-none gap-1 p-0">
-              {friends.map((f) => (
-                <li key={f.uuid} className="flex items-center justify-between gap-1 text-sm">
-                  <span>{f.nickname || f.username}</span>
+            {mode === "barricade" ? (
+              <div className="grid gap-2 rounded-xl border border-line/28 bg-[rgba(11,18,33,0.7)] p-2.5">
+                <p className="m-0 text-xs leading-relaxed text-ink-2">
+                  Choose a direction, then click the glowing edge. Vertical goes on the right edge and spans two rows.
+                  Horizontal goes on the bottom edge and spans two columns.
+                </p>
+                <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
-                    className="btn-arcade tiny"
-                    onClick={() => createAndInviteFriend(f)}
-                    disabled={loading || (gameType === "multi" && !!roomInfo)}
+                    className={`btn-arcade tiny ${wallKind === "v" ? "active" : "border-dashed"}`}
+                    onClick={() => setWallKind("v")}
                   >
-                    Invite
+                    Vertical ↕
                   </button>
-                </li>
-              ))}
-            </ul>
-          )}
-          {inviteMsg ? <p className="m-0 text-sm text-ink-2">{inviteMsg}</p> : null}
-        </div>
+                  <button
+                    type="button"
+                    className={`btn-arcade tiny ${wallKind === "h" ? "active" : "border-dashed"}`}
+                    onClick={() => setWallKind("h")}
+                  >
+                    Horizontal ↔
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </>
+        ) : null}
 
         <button type="button" className="btn-arcade danger" onClick={resetLocal}>
           Restart

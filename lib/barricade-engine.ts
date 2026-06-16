@@ -77,8 +77,12 @@ function between(a: Position, b: Position): { direction: WallKind; row: number; 
 
 export function wallAllowed(kind: WallKind, row: number, col: number): boolean {
   if (kind === "h") {
-    return row >= 0 && row < BOARD_SIZE - 1 && col >= 0 && col < BOARD_SIZE - 1;
+    // Allow half‑off‑left (col === -1) and half‑off‑right (col === BOARD_SIZE - 1)
+    // Normal horizontal walls require col in [0, BOARD_SIZE - 2]
+    // Extended range permits placing a wall that extends off the board on either side.
+    return row >= 0 && row < BOARD_SIZE - 1 && col >= -1 && col <= BOARD_SIZE - 1;
   }
+  // Vertical walls already support half‑off‑top (row === -1)
   return row >= -1 && row < BOARD_SIZE && col >= 0 && col < BOARD_SIZE - 1;
 }
 

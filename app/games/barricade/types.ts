@@ -1,3 +1,5 @@
+import { type BarricadeState, type Position, type Side, deserializeWalls } from "@/lib/barricade-engine";
+
 export const SIDES: Record<string, string> = {
   A: "Amber",
   B: "Blue",

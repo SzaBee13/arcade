@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { botTakeTurn } from "./bot";
+import { SIDES, type SerializedRoom, stateFromServer } from "./types";
 import {
   type ActionMode,
   BOARD_SIZE,
@@ -375,20 +376,20 @@ export function BarricadeBoard({ playerName }: { playerName: string }) {
         <div
           className="mx-auto grid w-max rounded-2xl border border-line/20 bg-[rgba(7,12,22,0.42)] p-2 shadow-inner"
           style={{
-            gridTemplateColumns: "minmax(34px, 48px) repeat(8, 12px minmax(34px, 48px))",
-            gridTemplateRows: "12px repeat(8, minmax(34px, 48px) 12px) minmax(34px, 48px)",
+            gridTemplateColumns: "12px repeat(9, minmax(34px, 48px) 12px)",
+            gridTemplateRows: "12px repeat(9, minmax(34px, 48px) 12px)",
           }}
         >
-          {Array.from({ length: BOARD_SIZE * 2 }).map((_, gridRow) =>
-            Array.from({ length: BOARD_SIZE * 2 - 1 }).map((__, gridCol) => {
-              const isCell = gridRow % 2 === 1 && gridCol % 2 === 0;
-              const isVerticalSlot = gridRow % 2 === 1 && gridCol % 2 === 1;
-              const isHorizontalSlot = gridRow % 2 === 0 && gridCol % 2 === 0;
-              const isIntersection = gridRow % 2 === 0 && gridCol % 2 === 1;
+          {Array.from({ length: BOARD_SIZE * 2 + 1 }).map((_, gridRow) =>
+            Array.from({ length: BOARD_SIZE * 2 + 1 }).map((__, gridCol) => {
+              const isCell = gridRow % 2 === 1 && gridCol % 2 === 1;
+              const isVerticalSlot = gridRow % 2 === 1 && gridCol % 2 === 0;
+              const isHorizontalSlot = gridRow % 2 === 0 && gridCol % 2 === 1;
+              const isIntersection = gridRow % 2 === 0 && gridCol % 2 === 0;
 
               if (isCell) {
                 const row = (gridRow - 1) / 2;
-                const col = gridCol / 2;
+                const col = (gridCol - 1) / 2;
                 const isYou = state.positions[yourSide].row === row && state.positions[yourSide].col === col;
                 const isEnemy = state.positions[enemySide].row === row && state.positions[enemySide].col === col;
                 const canReach = reachable.some((tile) => tile.row === row && tile.col === col);
@@ -408,10 +409,41 @@ export function BarricadeBoard({ playerName }: { playerName: string }) {
               }
 
               if (isVerticalSlot) {
-                const row = (gridRow - 1) / 2;
-                const col = (gridCol - 1) / 2;
-                const hasWall = state.walls.vertical.has(key(row, col));
-                const canPlace = wallCanPlace("v", row, col);
+               if (gridCol === 0) {
+                 if (mode === "barricade" && wallKind === "h") {
+                   const row = (gridRow - 1) / 2;
+                   const col = -1;
+                   const hasWall = state.walls.horizontal.has(key(row, col));
+                   const canPlace = wallCanPlace("h", row, col);
+                   if (hasWall) {
+                     return <div key={`h-wall-${row}-${col}`} className="m-[1px] rounded-full bg-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.45)]" />;
+                   }
+                   if (canPlace) {
+                     return (
+                       <button
+                         key={`h-place-${row}-${col}`}
+                         type="button"
+                         className="m-[1px] rounded-full border border-bg-glow-2/90 bg-bg-glow-2/35 text-[9px] font-black text-ink-1 shadow-[0_0_12px_rgba(93,214,192,0.35)] hover:bg-bg-glow-2/55"
+                         onClick={() => sendWall("h", row, col)}
+                         title={`Places horizontal barricade half off the left edge at row ${row}`}
+                         aria-label={`Place horizontal barricade half off the left edge at row ${row}`}
+                       >
+                         &gt;
+                       </button>
+                     );
+                   }
+                   return <div key={`h-empty-${row}-${col}`} />;
+                 }
+                 return <div key={`v-bound-${gridRow}-${gridCol}`} className="m-[1px] rounded-full bg-line/15" />;
+               }
+               if (gridCol === 18) {
+                 return <div key={`v-bound-${gridRow}-${gridCol}`} className="m-[1px] rounded-full bg-line/15" />;
+               }
+               const row = (gridRow - 1) / 2;
+               const col = (gridCol - 2) / 2;
+               const hasWall = state.walls.vertical.has(key(row, col));
+               const canPlace = wallCanPlace("v", row, col);
+
 
                 if (hasWall) {
                   return <div key={`v-wall-${row}-${col}`} className="m-[1px] rounded-full bg-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.45)]" />;
@@ -434,10 +466,8 @@ export function BarricadeBoard({ playerName }: { playerName: string }) {
               }
 
               if (isHorizontalSlot) {
-                const row = (gridRow - 2) / 2;
-                const col = gridCol / 2;
-
                 if (gridRow === 0 && mode === "barricade" && wallKind === "v") {
+                  const col = (gridCol - 1) / 2;
                   const hasWall = state.walls.vertical.has(key(-1, col));
                   const canPlace = wallCanPlace("v", -1, col);
                   if (hasWall) {
@@ -460,6 +490,12 @@ export function BarricadeBoard({ playerName }: { playerName: string }) {
                   return <div key={`v-empty-${-1}-${col}`} />;
                 }
 
+                if (gridRow === 0 || gridRow === 18) {
+                  return <div key={`h-bound-${gridRow}-${gridCol}`} className="m-[1px] rounded-full bg-line/15" />;
+                }
+
+                const row = (gridRow - 2) / 2;
+                const col = (gridCol - 1) / 2;
                 const hasWall = state.walls.horizontal.has(key(row, col));
                 const canPlace = wallCanPlace("h", row, col);
 
@@ -488,7 +524,7 @@ export function BarricadeBoard({ playerName }: { playerName: string }) {
               }
 
               return null;
-            }),
+            })
           )}
         </div>
       </div>

@@ -79,7 +79,7 @@ export function wallAllowed(kind: WallKind, row: number, col: number): boolean {
   if (kind === "h") {
     return row >= 0 && row < BOARD_SIZE - 1 && col >= 0 && col < BOARD_SIZE - 1;
   }
-  return row >= 0 && row < BOARD_SIZE - 1 && col >= 0 && col < BOARD_SIZE - 1;
+  return row >= -1 && row < BOARD_SIZE && col >= 0 && col < BOARD_SIZE - 1;
 }
 
 export function canMove(from: Position, to: Position, walls: WallState, enemy: Position): boolean {

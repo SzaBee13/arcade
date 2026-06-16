@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { botTakeTurn } from "./bot";
 import {
   type ActionMode,
   BOARD_SIZE,
@@ -21,93 +22,6 @@ import {
   targetRow,
   wallAllowed,
 } from "@/lib/barricade-engine";
-
-const SIDES: Record<string, string> = {
-  A: "Amber",
-  B: "Blue",
-};
-
-type ServerState = {
-  positions: Record<Side, Position>;
-  walls: { horizontal: string[]; vertical: string[] };
-  turn: Side;
-  remainingWalls: Record<Side, number>;
-  winner: Side | null;
-  log: string;
-};
-
-type SerializedRoom = {
-  roomId: string;
-  side: Side;
-  players: { name: string; side: Side }[];
-  state: ServerState;
-  updatedAt: number;
-};
-
-function stateFromServer(state: ServerState): BarricadeState {
-  return {
-    positions: state.positions,
-    walls: deserializeWalls(state.walls),
-    turn: state.turn,
-    remainingWalls: state.remainingWalls,
-    winner: state.winner,
-    log: state.log,
-  };
-}
-
-function botTakeTurn(current: BarricadeState): BarricadeState {
-  const botSide: Side = "B";
-  const playerSide: Side = "A";
-
-  const botNeighbors = neighbors(current.positions[botSide], current.walls, current.positions[playerSide]);
-  if (botNeighbors.length === 0) {
-    return { ...current, winner: playerSide, log: "Bot is trapped. You win!" };
-  }
-
-  const playerDistance = shortestDistance(current.positions[playerSide], targetRow(playerSide), current.walls, current.positions[botSide]);
-  const botDistance = shortestDistance(current.positions[botSide], targetRow(botSide), current.walls, current.positions[playerSide]);
-
-  if (current.remainingWalls[botSide] > 0 && playerDistance <= botDistance + 1) {
-    const candidates: Array<{ kind: "h" | "v"; row: number; col: number; score: number }> = [];
-    for (let row = 0; row < BOARD_SIZE; row += 1) {
-      for (let col = 0; col < BOARD_SIZE; col += 1) {
-        for (const kind of ["h", "v"] as const) {
-          if (!wallAllowed(kind, row, col)) continue;
-          if (!canPlaceWall(current, kind, row, col)) continue;
-          const next = applyWall(current, botSide, kind, row, col);
-          if (!next) continue;
-          const afterPlayer = shortestDistance(next.positions[playerSide], targetRow(playerSide), next.walls, next.positions[botSide]);
-          const afterBot = shortestDistance(next.positions[botSide], targetRow(botSide), next.walls, next.positions[playerSide]);
-          candidates.push({ kind, row, col, score: afterPlayer - afterBot });
-        }
-      }
-    }
-
-    candidates.sort((a, b) => b.score - a.score);
-    const best = candidates[0];
-    if (best && best.score > 0) {
-      const next = applyWall(current, botSide, best.kind, best.row, best.col);
-      if (next) {
-        return { ...next, log: "Bot placed a barricade to slow you down." };
-      }
-    }
-  }
-
-  const sortedMoves = botNeighbors
-    .map((move) => ({
-      move,
-      dist: shortestDistance(move, targetRow(botSide), current.walls, current.positions[playerSide]),
-    }))
-    .sort((a, b) => a.dist - b.dist);
-
-  const bestMove = sortedMoves[0]?.move ?? botNeighbors[0];
-  const next = applyMove(current, botSide, bestMove);
-  if (!next) return current;
-  if (next.winner === botSide) {
-    return { ...next, log: "Bot reached your edge first." };
-  }
-  return { ...next, log: "Bot moved. Your turn." };
-}
 
 type FriendUser = { uuid: string; username: string; nickname: string };
 
@@ -461,19 +375,19 @@ export function BarricadeBoard({ playerName }: { playerName: string }) {
         <div
           className="mx-auto grid w-max rounded-2xl border border-line/20 bg-[rgba(7,12,22,0.42)] p-2 shadow-inner"
           style={{
-            gridTemplateColumns: "repeat(8, minmax(34px, 48px) 12px) minmax(34px, 48px)",
-            gridTemplateRows: "repeat(8, minmax(34px, 48px) 12px) minmax(34px, 48px)",
+            gridTemplateColumns: "minmax(34px, 48px) repeat(8, 12px minmax(34px, 48px))",
+            gridTemplateRows: "12px repeat(8, minmax(34px, 48px) 12px) minmax(34px, 48px)",
           }}
         >
-          {Array.from({ length: BOARD_SIZE * 2 - 1 }).map((_, gridRow) =>
+          {Array.from({ length: BOARD_SIZE * 2 }).map((_, gridRow) =>
             Array.from({ length: BOARD_SIZE * 2 - 1 }).map((__, gridCol) => {
-              const isCell = gridRow % 2 === 0 && gridCol % 2 === 0;
-              const isVerticalSlot = gridRow % 2 === 0 && gridCol % 2 === 1;
-              const isHorizontalSlot = gridRow % 2 === 1 && gridCol % 2 === 0;
-              const isIntersection = gridRow % 2 === 1 && gridCol % 2 === 1;
+              const isCell = gridRow % 2 === 1 && gridCol % 2 === 0;
+              const isVerticalSlot = gridRow % 2 === 1 && gridCol % 2 === 1;
+              const isHorizontalSlot = gridRow % 2 === 0 && gridCol % 2 === 0;
+              const isIntersection = gridRow % 2 === 0 && gridCol % 2 === 1;
 
               if (isCell) {
-                const row = gridRow / 2;
+                const row = (gridRow - 1) / 2;
                 const col = gridCol / 2;
                 const isYou = state.positions[yourSide].row === row && state.positions[yourSide].col === col;
                 const isEnemy = state.positions[enemySide].row === row && state.positions[enemySide].col === col;
@@ -494,10 +408,10 @@ export function BarricadeBoard({ playerName }: { playerName: string }) {
               }
 
               if (isVerticalSlot) {
-                const row = gridRow / 2;
+                const row = (gridRow - 1) / 2;
                 const col = (gridCol - 1) / 2;
                 const hasWall = state.walls.vertical.has(key(row, col));
-                const canPlace = row < BOARD_SIZE - 1 && wallCanPlace("v", row, col);
+                const canPlace = wallCanPlace("v", row, col);
 
                 if (hasWall) {
                   return <div key={`v-wall-${row}-${col}`} className="m-[1px] rounded-full bg-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.45)]" />;
@@ -509,8 +423,8 @@ export function BarricadeBoard({ playerName }: { playerName: string }) {
                       type="button"
                       className="m-[1px] rounded-full border border-bg-glow-2/90 bg-bg-glow-2/35 text-[9px] font-black text-ink-1 shadow-[0_0_12px_rgba(93,214,192,0.35)] hover:bg-bg-glow-2/55"
                       onClick={() => sendWall("v", row, col)}
-                      title="Vertical barricade: right edge of this square plus the edge below"
-                      aria-label={`Place vertical barricade on the right edge of ${row},${col}`}
+                      title={`Blocks passage between (${row},${col}) and (${row + 1},${col})`}
+                      aria-label={`Place vertical barricade between (${row},${col}) and (${row + 1},${col})`}
                     >
                       V
                     </button>
@@ -520,10 +434,34 @@ export function BarricadeBoard({ playerName }: { playerName: string }) {
               }
 
               if (isHorizontalSlot) {
-                const row = (gridRow - 1) / 2;
+                const row = (gridRow - 2) / 2;
                 const col = gridCol / 2;
+
+                if (gridRow === 0 && mode === "barricade" && wallKind === "v") {
+                  const hasWall = state.walls.vertical.has(key(-1, col));
+                  const canPlace = wallCanPlace("v", -1, col);
+                  if (hasWall) {
+                    return <div key={`v-wall-${-1}-${col}`} className="m-[1px] rounded-full bg-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.45)]" />;
+                  }
+                  if (canPlace) {
+                    return (
+                      <button
+                        key={`v-place-${-1}-${col}`}
+                        type="button"
+                        className="m-[1px] rounded-full border border-bg-glow-2/90 bg-bg-glow-2/35 text-[9px] font-black text-ink-1 shadow-[0_0_12px_rgba(93,214,192,0.35)] hover:bg-bg-glow-2/55"
+                        onClick={() => sendWall("v", -1, col)}
+                        title={`Blocks passage above (0,${col}) — half off the top of the board`}
+                        aria-label={`Place vertical barricade half off the top edge at column ${col}`}
+                      >
+                        V
+                      </button>
+                    );
+                  }
+                  return <div key={`v-empty-${-1}-${col}`} />;
+                }
+
                 const hasWall = state.walls.horizontal.has(key(row, col));
-                const canPlace = col < BOARD_SIZE - 1 && wallCanPlace("h", row, col);
+                const canPlace = wallCanPlace("h", row, col);
 
                 if (hasWall) {
                   return <div key={`h-wall-${row}-${col}`} className="m-[1px] rounded-full bg-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.45)]" />;
@@ -535,10 +473,10 @@ export function BarricadeBoard({ playerName }: { playerName: string }) {
                       type="button"
                       className="m-[1px] rounded-full border border-bg-glow-2/90 bg-bg-glow-2/35 text-[9px] font-black leading-none text-ink-1 shadow-[0_0_12px_rgba(93,214,192,0.35)] hover:bg-bg-glow-2/55"
                       onClick={() => sendWall("h", row, col)}
-                      title="Horizontal barricade: bottom edge of this square plus the edge to the right"
-                      aria-label={`Place horizontal barricade on the bottom edge of ${row},${col}`}
+                      title={`Blocks passage between (${row},${col}) and (${row},${col + 1})`}
+                      aria-label={`Place horizontal barricade between (${row},${col}) and (${row},${col + 1})`}
                     >
-                      H
+                      &gt;  
                     </button>
                   );
                 }

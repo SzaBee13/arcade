@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { botTakeTurn } from "./bot";
+import { type BotDifficulty, botTakeTurn } from "./bot";
 import { type SerializedRoom, stateFromServer } from "./types";
 import {
   type ActionMode,
@@ -21,6 +21,12 @@ import {
 } from "@/lib/barricade/engine";
 
 type FriendUser = { uuid: string; username: string; nickname: string };
+
+const BOT_DIFFICULTIES: Array<{ value: BotDifficulty; label: string; description: string }> = [
+  { value: "easy", label: "Easy", description: "Random legal moves." },
+  { value: "normal", label: "Normal", description: "Greedy path pressure." },
+  { value: "hard", label: "Hard", description: "Looks one reply ahead." },
+];
 
 const SIDE_STYLES: Record<Side, { label: string; piece: string; wall: string }> = {
   A: {
@@ -46,6 +52,7 @@ async function api(path: string, body?: unknown) {
 
 export function BarricadeBoard({ playerName }: { playerName: string }) {
   const [gameType, setGameType] = useState<"bot" | "multi">("bot");
+  const [botDifficulty, setBotDifficulty] = useState<BotDifficulty>("normal");
   const [mode, setMode] = useState<ActionMode>("move");
   const [wallKind, setWallKind] = useState<WallKind>("v");
   const [state, setState] = useState<BarricadeState>(() => createInitialState());
@@ -118,10 +125,10 @@ export function BarricadeBoard({ playerName }: { playerName: string }) {
     if (gameType !== "bot" || state.winner || state.turn !== "B") return;
     const timer = window.setTimeout(() => {
       setMode("move");
-      setState((current) => botTakeTurn(current));
+      setState((current) => botTakeTurn(current, botDifficulty));
     }, 320);
     return () => window.clearTimeout(timer);
-  }, [gameType, state.winner, state.turn]);
+  }, [botDifficulty, gameType, state.winner, state.turn]);
 
   async function sendMove(target: Position) {
     if (!canAct || mode !== "move") return;
@@ -298,6 +305,28 @@ export function BarricadeBoard({ playerName }: { playerName: string }) {
                 {inviteMsg ? <p className="m-0 text-sm text-ink-2">{inviteMsg}</p> : null}
               </>
             )}
+          </div>
+        ) : null}
+
+        {gameType === "bot" ? (
+          <div className="grid gap-2 rounded-xl border border-line/28 bg-[rgba(11,18,33,0.7)] p-3">
+            <div className="flex items-center justify-between gap-2 text-xs uppercase tracking-widest text-ink-3">
+              <span>Bot Difficulty</span>
+              <span>{BOT_DIFFICULTIES.find((item) => item.value === botDifficulty)?.description}</span>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {BOT_DIFFICULTIES.map((difficulty) => (
+                <button
+                  key={difficulty.value}
+                  type="button"
+                  className={`btn-arcade tiny ${botDifficulty === difficulty.value ? "active" : "border-dashed"}`}
+                  onClick={() => setBotDifficulty(difficulty.value)}
+                  disabled={state.turn === "B" && !state.winner}
+                >
+                  {difficulty.label}
+                </button>
+              ))}
+            </div>
           </div>
         ) : null}
 

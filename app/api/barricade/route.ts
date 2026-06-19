@@ -7,8 +7,8 @@ import {
   getRoom,
   removePlayer,
   serializeRoom,
-} from "@/lib/barricade-room";
-import { type Position, type WallKind } from "@/lib/barricade-engine";
+} from "@/lib/barricade/room";
+import { type Position, type WallKind } from "@/lib/barricade/engine";
 
 function bad(message: string, status = 400) {
   return NextResponse.json({ error: message }, { status });

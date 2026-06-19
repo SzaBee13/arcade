@@ -4,16 +4,22 @@ export type ActionMode = "move" | "barricade";
 export type WallKind = "h" | "v";
 
 export const BOARD_SIZE = 9;
-export const MAX_BARRICADES = 15;
+export const MAX_BARRICADES = 10;
 
 export type WallState = {
   horizontal: Set<string>;
   vertical: Set<string>;
 };
 
+export type WallOwners = {
+  horizontal: Record<string, Side>;
+  vertical: Record<string, Side>;
+};
+
 export type BarricadeState = {
   positions: Record<Side, Position>;
   walls: WallState;
+  wallOwners: WallOwners;
   turn: Side;
   remainingWalls: Record<Side, number>;
   winner: Side | null;
@@ -23,6 +29,7 @@ export type BarricadeState = {
 export type SerializedBarricadeState = {
   positions: Record<Side, Position>;
   walls: { horizontal: string[]; vertical: string[] };
+  wallOwners: { horizontal: Record<string, Side>; vertical: Record<string, Side> };
   turn: Side;
   remainingWalls: Record<Side, number>;
   winner: Side | null;
@@ -44,12 +51,23 @@ export function cloneWalls(walls: WallState): WallState {
   };
 }
 
+export function cloneWallOwners(wallOwners: WallOwners): WallOwners {
+  return {
+    horizontal: { ...wallOwners.horizontal },
+    vertical: { ...wallOwners.vertical },
+  };
+}
+
 export function serializeState(state: BarricadeState): SerializedBarricadeState {
   return {
     positions: state.positions,
     walls: {
       horizontal: [...state.walls.horizontal],
       vertical: [...state.walls.vertical],
+    },
+    wallOwners: {
+      horizontal: { ...state.wallOwners.horizontal },
+      vertical: { ...state.wallOwners.vertical },
     },
     turn: state.turn,
     remainingWalls: state.remainingWalls,
@@ -62,6 +80,13 @@ export function deserializeWalls(input: { horizontal: string[]; vertical: string
   return {
     horizontal: new Set(input.horizontal),
     vertical: new Set(input.vertical),
+  };
+}
+
+export function deserializeWallOwners(input: { horizontal: Record<string, Side>; vertical: Record<string, Side> }): WallOwners {
+  return {
+    horizontal: { ...input.horizontal },
+    vertical: { ...input.vertical },
   };
 }
 
@@ -216,6 +241,7 @@ export function createInitialState(log = "Your turn. Move or place a barricade."
       B: { row: BOARD_SIZE - 1, col: 4 },
     },
     walls: { horizontal: new Set(), vertical: new Set() },
+    wallOwners: { horizontal: {}, vertical: {} },
     turn: "A",
     remainingWalls: { A: MAX_BARRICADES, B: MAX_BARRICADES },
     winner: null,
@@ -258,17 +284,23 @@ export function applyWall(state: BarricadeState, side: Side, kind: WallKind, row
   }
 
   const walls = cloneWalls(state.walls);
+  const wallOwners = cloneWallOwners(state.wallOwners);
   if (kind === "h") {
     walls.horizontal.add(key(row, col));
     walls.horizontal.add(key(row, col + 1));
+    wallOwners.horizontal[key(row, col)] = side;
+    wallOwners.horizontal[key(row, col + 1)] = side;
   } else {
     walls.vertical.add(key(row, col));
     walls.vertical.add(key(row + 1, col));
+    wallOwners.vertical[key(row, col)] = side;
+    wallOwners.vertical[key(row + 1, col)] = side;
   }
 
   return {
     ...state,
     walls,
+    wallOwners,
     turn: other(side),
     remainingWalls: {
       ...state.remainingWalls,

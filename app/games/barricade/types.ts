@@ -1,8 +1,9 @@
-import { type BarricadeState, type Position, type Side, deserializeWalls } from "@/lib/barricade-engine";
+import { type BarricadeState, type Position, type Side, deserializeWallOwners, deserializeWalls } from "@/lib/barricade/engine";
 
 export type ServerState = {
   positions: Record<Side, Position>;
   walls: { horizontal: string[]; vertical: string[] };
+  wallOwners: { horizontal: Record<string, Side>; vertical: Record<string, Side> };
   turn: Side;
   remainingWalls: Record<Side, number>;
   winner: Side | null;
@@ -23,6 +24,7 @@ export function stateFromServer(state: ServerState): BarricadeState {
   return {
     positions: state.positions,
     walls: deserializeWalls(state.walls),
+    wallOwners: deserializeWallOwners(state.wallOwners),
     turn: state.turn,
     remainingWalls: state.remainingWalls,
     winner: state.winner,

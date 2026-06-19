@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createFriendInviteLink } from "@/lib/friend-invite-store";
+import { createFriendInviteLink } from "@/lib/friends/store";
 import { getSession } from "@/lib/szabee";
 import { getOrCreateUser } from "@/lib/user-store";
 

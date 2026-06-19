@@ -4,10 +4,10 @@ import {
   applyWall,
   createInitialState,
   type BarricadeState,
-  type SerializedBarricadeState,
   type Side,
   other,
-} from "./barricade-engine";
+  serializeState,
+} from "./engine";
 
 export type RoomPlayer = {
   id: string;
@@ -131,17 +131,7 @@ export function serializeRoom(room: Room, forSide: Side) {
     roomId: room.id,
     side: forSide,
     players: room.players.map((p) => ({ name: p.name, side: p.side })),
-    state: {
-      positions: room.state.positions,
-      walls: {
-        horizontal: [...room.state.walls.horizontal],
-        vertical: [...room.state.walls.vertical],
-      },
-      turn: room.state.turn,
-      remainingWalls: room.state.remainingWalls,
-      winner: room.state.winner,
-      log: room.state.log,
-    } satisfies SerializedBarricadeState,
+    state: serializeState(room.state),
     updatedAt: room.updatedAt,
   };
 }

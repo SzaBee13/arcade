@@ -18,9 +18,22 @@ import {
   key,
   neighbors,
   other,
-} from "@/lib/barricade-engine";
+} from "@/lib/barricade/engine";
 
 type FriendUser = { uuid: string; username: string; nickname: string };
+
+const SIDE_STYLES: Record<Side, { label: string; piece: string; wall: string }> = {
+  A: {
+    label: "Red",
+    piece: "bg-rose-500 border-rose-200/80 shadow-[0_0_14px_rgba(244,63,94,0.32)]",
+    wall: "bg-rose-500 shadow-[0_0_12px_rgba(244,63,94,0.36)]",
+  },
+  B: {
+    label: "Blue",
+    piece: "bg-sky-500 border-sky-200/80 shadow-[0_0_14px_rgba(14,165,233,0.32)]",
+    wall: "bg-sky-500 shadow-[0_0_12px_rgba(14,165,233,0.36)]",
+  },
+};
 
 async function api(path: string, body?: unknown) {
   const res = await fetch(path, {
@@ -46,6 +59,19 @@ export function BarricadeBoard({ playerName }: { playerName: string }) {
   const enemySide: Side = other(yourSide);
   const gameActive = gameType === "bot" || (gameType === "multi" && !!roomInfo && roomInfo.players.length === 2);
   const canAct = gameActive && !state.winner && state.turn === yourSide;
+
+  const sideName = useCallback(
+    (side: Side) => {
+      if (gameType === "bot") {
+        return side === "A" ? playerName : "Bot";
+      }
+      if (!roomInfo) {
+        return side === "A" ? playerName : "Opponent";
+      }
+      return roomInfo.players.find((player) => player.side === side)?.name ?? (side === yourSide ? playerName : "Opponent");
+    },
+    [gameType, playerName, roomInfo, yourSide],
+  );
 
   function myName() {
     if (gameType === "bot") return playerName;
@@ -176,6 +202,14 @@ export function BarricadeBoard({ playerName }: { playerName: string }) {
     return opp?.name ?? "Opponent";
   }
 
+  function wallOwner(kind: WallKind, row: number, col: number): Side | undefined {
+    return kind === "h" ? state.wallOwners.horizontal[key(row, col)] : state.wallOwners.vertical[key(row, col)];
+  }
+
+  function wallSegmentClass(owner: Side | undefined): string {
+    return owner ? SIDE_STYLES[owner].wall : "bg-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.45)]";
+  }
+
   async function createAndInviteFriend(friend: FriendUser) {
     setInviteMsg("");
     const data: SerializedRoom & { error?: string } = await api("/api/barricade", { action: "create" });
@@ -269,6 +303,22 @@ export function BarricadeBoard({ playerName }: { playerName: string }) {
 
         {gameActive ? (
           <>
+            <div className="grid gap-2 rounded-xl border border-line/28 bg-[rgba(11,18,33,0.7)] p-3">
+              <div className="flex items-center justify-between gap-2 text-xs uppercase tracking-widest text-ink-3">
+                <span>Color map</span>
+                <span>Pieces and barricades</span>
+              </div>
+              {(["A", "B"] as Side[]).map((side) => (
+                <div key={side} className="flex items-center justify-between gap-3 text-sm">
+                  <div className="flex items-center gap-2">
+                    <span className={`h-3.5 w-3.5 rounded-full border ${SIDE_STYLES[side].piece}`} aria-hidden="true" />
+                    <span className="font-bold">{SIDE_STYLES[side].label}</span>
+                  </div>
+                  <span className="text-ink-2">{sideName(side)}</span>
+                </div>
+              ))}
+            </div>
+
             <dl className="m-0 grid gap-2">
               <div className="flex justify-between gap-2">
                 <dt className="font-bold">{myName()}</dt>
@@ -361,17 +411,18 @@ export function BarricadeBoard({ playerName }: { playerName: string }) {
                 const isYou = state.positions[yourSide].row === row && state.positions[yourSide].col === col;
                 const isEnemy = state.positions[enemySide].row === row && state.positions[enemySide].col === col;
                 const canReach = reachable.some((tile) => tile.row === row && tile.col === col);
+                const pieceSide = isYou ? yourSide : isEnemy ? enemySide : null;
 
                 return (
                   <button
                     key={`cell-${row}-${col}`}
                     type="button"
-                    className={`m-0.5 flex items-center justify-center rounded-xl border border-white/35 bg-white/5 text-sm font-extrabold text-ink-1 transition-transform hover:scale-105 disabled:cursor-not-allowed ${canReach ? "border-bg-glow-2/90 bg-bg-glow-2/20 shadow-[0_0_14px_rgba(93,214,192,0.22)]" : ""} ${isYou ? "bg-bg-glow-2/30" : ""} ${isEnemy ? "bg-bg-glow/30" : ""}`}
+                    className={`m-0.5 flex items-center justify-center rounded-xl border border-white/35 bg-white/5 transition-transform hover:scale-105 disabled:cursor-not-allowed ${canReach ? "border-bg-glow-2/90 bg-bg-glow-2/20 shadow-[0_0_14px_rgba(93,214,192,0.22)]" : ""} ${pieceSide ? `${SIDE_STYLES[pieceSide].piece} border-white/55` : ""}`}
                     onClick={() => sendMove({ row, col })}
                     disabled={!canAct || mode !== "move" || !!state.winner}
                     aria-label={`Board square ${row},${col}`}
                   >
-                    {isYou ? "Y" : isEnemy ? "E" : ""}
+                    {pieceSide ? <span className="h-4 w-4 rounded-full border border-white/30" aria-hidden="true" /> : null}
                   </button>
                 );
               }
@@ -382,9 +433,10 @@ export function BarricadeBoard({ playerName }: { playerName: string }) {
                    const row = (gridRow - 1) / 2;
                    const col = -1;
                    const hasWall = state.walls.horizontal.has(key(row, col));
+                   const owner = wallOwner("h", row, col);
                    const canPlace = wallCanPlace("h", row, col);
                    if (hasWall) {
-                     return <div key={`h-wall-${row}-${col}`} className="m-[1px] rounded-full bg-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.45)]" />;
+                     return <div key={`h-wall-${row}-${col}`} className={`m-[1px] rounded-full ${wallSegmentClass(owner)}`} />;
                    }
                    if (canPlace) {
                      return (
@@ -410,11 +462,12 @@ export function BarricadeBoard({ playerName }: { playerName: string }) {
                const row = (gridRow - 1) / 2;
                const col = (gridCol - 2) / 2;
                const hasWall = state.walls.vertical.has(key(row, col));
+               const owner = wallOwner("v", row, col);
                const canPlace = wallCanPlace("v", row, col);
 
 
                 if (hasWall) {
-                  return <div key={`v-wall-${row}-${col}`} className="m-[1px] rounded-full bg-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.45)]" />;
+                  return <div key={`v-wall-${row}-${col}`} className={`m-[1px] rounded-full ${wallSegmentClass(owner)}`} />;
                 }
                 if (canPlace) {
                   return (
@@ -437,9 +490,10 @@ export function BarricadeBoard({ playerName }: { playerName: string }) {
                 if (gridRow === 0 && mode === "barricade" && wallKind === "v") {
                   const col = (gridCol - 1) / 2;
                   const hasWall = state.walls.vertical.has(key(-1, col));
+                  const owner = wallOwner("v", -1, col);
                   const canPlace = wallCanPlace("v", -1, col);
                   if (hasWall) {
-                    return <div key={`v-wall-${-1}-${col}`} className="m-[1px] rounded-full bg-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.45)]" />;
+                    return <div key={`v-wall-${-1}-${col}`} className={`m-[1px] rounded-full ${wallSegmentClass(owner)}`} />;
                   }
                   if (canPlace) {
                     return (
@@ -465,10 +519,11 @@ export function BarricadeBoard({ playerName }: { playerName: string }) {
                 const row = (gridRow - 2) / 2;
                 const col = (gridCol - 1) / 2;
                 const hasWall = state.walls.horizontal.has(key(row, col));
+                const owner = wallOwner("h", row, col);
                 const canPlace = wallCanPlace("h", row, col);
 
                 if (hasWall) {
-                  return <div key={`h-wall-${row}-${col}`} className="m-[1px] rounded-full bg-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.45)]" />;
+                  return <div key={`h-wall-${row}-${col}`} className={`m-[1px] rounded-full ${wallSegmentClass(owner)}`} />;
                 }
                 if (canPlace) {
                   return (

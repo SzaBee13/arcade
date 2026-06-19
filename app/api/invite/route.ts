@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/szabee";
 import { getOrCreateUser } from "@/lib/user-store";
-import { createInvite, getPendingInvites, clearInvite } from "@/lib/invite-store";
+import { createInvite, getPendingInvites, clearInvite } from "@/lib/friends/invite-store";
 
 function bad(message: string, status = 400) {
   return NextResponse.json({ error: message }, { status });

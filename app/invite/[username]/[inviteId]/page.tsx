@@ -1,8 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
-import { validateFriendInviteLink } from "@/lib/friend-invite-store";
-import { addMutualFriends } from "@/lib/friends-store";
+import { addMutualFriends, validateFriendInviteLink } from "@/lib/friends/store";
 import { getSession } from "@/lib/szabee";
 import { getOrCreateUser } from "@/lib/user-store";
 

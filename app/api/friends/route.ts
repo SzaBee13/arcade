@@ -9,7 +9,7 @@ import {
   sendRequest,
   acceptRequest,
   declineRequest,
-} from "@/lib/friends-store";
+} from "@/lib/friends/store";
 import { getOrCreateUser } from "@/lib/user-store";
 
 function bad(message: string, status = 400) {
